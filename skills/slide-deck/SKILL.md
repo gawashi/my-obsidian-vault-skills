@@ -1,6 +1,6 @@
 ---
 name: slide-deck
-description: 発表スライド（プレゼン資料）を reveal.js 自己完結デッキとして作る。OMRON 配色の雛形を新フォルダへ展開し、手元の素材（ノート/アウトライン/要点）からスライドを起こす。Use when the user wants to create presentation slides, build a slide deck, or プレゼン資料/発表資料を作る.
+description: 発表スライド（プレゼン資料）を reveal.js 自己完結デッキとして作る。OMRON 配色の雛形を新フォルダへ展開し、手元の素材（ノート/アウトライン/要点）からスライドを起こす。Use when the user wants to create presentation slides, build a slide deck or PowerPoint-style deck, or asks スライド作成／プレゼン資料・発表資料を作って／"make a deck".
 ---
 
 # slide-deck
@@ -34,6 +34,7 @@ This skill owns the **production mechanism**, not content design. It turns mater
 | Key takeaway / caution | callout | `<p class="callout">…</p>` (add ` warn` for a red caution band) |
 | One big statement | lead | `<p class="lead">…</p>` |
 | Config / code | code block | `<pre class="code"><code>…</code></pre>` (escape `<` as `&lt;`) |
+| Caption under code | code-note | `<p class="code-note">…</p>` |
 | Screenshot to capture later | placeholder | `<div class="placeholder"><div class="ph-title">🎬 …</div><div class="ph-spec">…</div></div>` |
 | A short tag on a heading | badge | `<div class="headrow"><span class="badge">…</span><h2>…</h2></div>` |
 | Comparison / mapping | table | `<table class="cmp"><tr><th>…</th>…</tr>…<tr class="root">…</tr></table>` |
