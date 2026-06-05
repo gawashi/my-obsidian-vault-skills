@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>発表タイトル</title>
+    <link rel="stylesheet" href="vendor/reveal.css">
+    <link rel="stylesheet" href="theme.css">
+</head>
+
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- ============ 表紙 ============ -->
+            <section>
+                <p class="eyebrow">プロジェクト名 ｜ サブタイトル</p>
+                <h1>発表タイトル</h1>
+                <hr class="rule">
+                <p class="src">YYYY-MM-DD ｜ 発表者名</p>
+                <aside class="notes">手元の台本（聴衆には出ない）。S キーで表示。</aside>
+            </section>
+
+            <!-- ============ ふつうのスライド（見出し＋本文＋箇条書き） ============ -->
+            <section>
+                <h2>見出し</h2>
+                <hr class="rule">
+                <p>本文。<b>強調</b> や <code>コード語</code> も使える。</p>
+                <ul>
+                    <li>箇条書き 1</li>
+                    <li class="fragment">箇条書き 2（fragment＝矢印キーで後から表示）</li>
+                </ul>
+                <aside class="notes">台本。</aside>
+            </section>
+
+            <!-- ============ 2カラム ＋ 下のコールアウト ============ -->
+            <section>
+                <h2>2カラムの見出し</h2>
+                <hr class="rule">
+                <div class="cols">
+                    <div class="col">
+                        <h3>左の見出し</h3>
+                        <ul><li>要点</li><li>要点</li></ul>
+                    </div>
+                    <div class="col">
+                        <h3>右の見出し</h3>
+                        <ul><li>要点</li><li>要点</li></ul>
+                    </div>
+                </div>
+                <p class="callout">強調したい一文（定位置のコールアウト）。</p>
+                <aside class="notes">台本。</aside>
+            </section>
+
+            <!-- ============ リード文 ＋ 注意コールアウト ============ -->
+            <section>
+                <p class="lead">大きく見せたい一文。</p>
+                <p class="callout warn">注意を促す一文（warn＝赤帯）。</p>
+                <aside class="notes">台本。</aside>
+            </section>
+
+            <!-- ============ コード ============ -->
+            <section>
+                <h2>コードを見せる</h2>
+                <hr class="rule">
+                <pre class="code"><code>{
+  "key": "value"
+}</code></pre>
+                <p class="code-note">コード直下の薄い説明。</p>
+                <aside class="notes">台本。</aside>
+            </section>
+
+            <!-- ============ スクショ差し込み枠（当日キャプチャ用） ============ -->
+            <section>
+                <h2>スクリーンショット</h2>
+                <hr class="rule">
+                <div class="placeholder">
+                    <div class="ph-title">🎬 スクショ枠：何の画面か</div>
+                    <div class="ph-spec">撮るべき内容・ファイルパスなど。撮ったら枠ごと
+                        &lt;img src="assets/xxx.png" alt="説明"&gt; に差し替える。</div>
+                </div>
+                <aside class="notes">台本。</aside>
+            </section>
+
+            <!-- ============ 比較表 ＋ ラベルバッジ ============ -->
+            <section>
+                <div class="headrow"><span class="badge">ラベル</span>
+                    <h2>比較表</h2>
+                </div>
+                <hr class="rule">
+                <table class="cmp">
+                    <tr><th>項目</th><th>A</th><th>B</th></tr>
+                    <tr><td>観点1</td><td>…</td><td>…</td></tr>
+                    <tr class="root"><td>結論</td><td>…</td><td>…</td></tr>
+                </table>
+                <aside class="notes">台本。</aside>
+            </section>
+
+        </div>
+    </div>
+    <script src="vendor/reveal.js"></script>
+    <script src="vendor/notes/notes.js"></script>
+    <script>
+        Reveal.initialize({
+            width: 1920, height: 1080, margin: 0.04,
+            center: true,
+            controls: true, progress: true, slideNumber: 'c/t', hash: true,
+            plugins: [RevealNotes],
+        });
+    </script>
+</body>
+
+</html>
