@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "vault",
+  "description": "Skills for working in a personal Obsidian vault: project scaffolding/growth, meeting minutes, handoff, slide decks, and self-quizzing.",
+  "author": {
+    "name": "gawashi"
+  },
+  "repository": "https://github.com/gawashi/my-obsidian-vault-skills",
+  "keywords": ["obsidian", "skills", "productivity", "notes"]
+}

@@ -1,0 +1,15 @@
+{
+    "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+    "name": "vault-skills",
+    "owner": {
+        "name": "gawashi"
+    },
+    "description": "gawashi's personal Claude Code skills marketplace.",
+    "plugins": [
+        {
+            "name": "vault",
+            "source": "./",
+            "description": "Skills for working in a personal Obsidian vault: project scaffolding/growth, meeting minutes, handoff, slide decks, and self-quizzing."
+        }
+    ]
+}
