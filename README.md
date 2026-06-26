@@ -46,16 +46,47 @@
 
 ### 開発ループ（dogfooding）
 
+用途に応じて 2 通り。
+
+#### 方式A: `--plugin-dir .`（リポジトリ内で即時反映）
+
 リポジトリのルートで `--plugin-dir` を付けて起動すると、スキルを**その場で**読み込む。
+編集はそのまま反映されるが、claude を**このリポジトリのディレクトリで起動**する必要がある。
 
 ```bash
 claude --plugin-dir .
 ```
 
-> marketplace 経由の install はプラグインをキャッシュへコピーするため編集が反映されない。
-> dogfooding には必ず `--plugin-dir .` を使う。
+#### 方式B: ローカルマーケットプレイス（実際の vault の中で試す）
+
+「テスト対象の vault で実際に呼び出して動作確認したい」場合はこちら。
+GitHub 版マーケットプレイスを外し、**ローカルのリポジトリパス**を登録し直す。
+
+```bash
+# 1. GitHub 版を外す（入っている場合）
+/plugin marketplace remove vault-skills
+# 2. ローカルのクローンを登録（パスは各自の clone 先に置き換え）
+/plugin marketplace add path\to\my-obsidian-vault-skills
+# 3. インストールして反映
+/plugin install vault@vault-skills
+/reload-plugins
+```
+
+以降、`skills/` を編集したら再 sync する:
+
+```bash
+/plugin marketplace update vault-skills
+/plugin update vault
+/reload-plugins   # 反映されない場合はセッション再起動、または uninstall→install
+```
+
+> **注意**: marketplace 経由の install はプラグインをキャッシュ（`~/.claude/plugins/cache/`）へ
+> コピーするため、ソースを編集しただけでは反映されない。方式B では編集後に上記の再 sync が要る。
+> 編集→即反映を重視するなら方式A、実 vault での挙動確認を重視するなら方式B。
 
 ### バリデーション
+
+Claude Code プラグインの構造が正しいかをチェックする。
 
 ```bash
 claude plugin validate .
