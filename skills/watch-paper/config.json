@@ -5,7 +5,8 @@
     "lookback_days": 7,
     "first_run_lookback_days": 30,
     "max_results": 120,
-    "request_delay_seconds": 3
+    "request_delay_seconds": 3,
+    "scoring_concurrency": 6
   },
   "themes": [
     {
