@@ -1,2 +1,4 @@
 settings.local.json
 .superpowers
+
+__pycache__
