@@ -213,9 +213,11 @@ def run_fetch(config, data_dir, now_utc):
                     "primary_category": r.primary_category,
                     "link": r.entry_id,
                 })
-            theme_out["new"] = len(theme_out["candidates"])
         except Exception as e:  # arxiv.UnexpectedEmptyPageError / HTTPError etc.
             theme_out["error"] = f"{type(e).__name__}: {e}"
+        # Set 'new' after the try/except so a partial fetch (exception mid-loop)
+        # still reports however many candidates were collected, not 0.
+        theme_out["new"] = len(theme_out["candidates"])
         doc["themes"].append(theme_out)
 
     doc["first_run"] = any_first_run
