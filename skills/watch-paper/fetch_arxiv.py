@@ -92,3 +92,55 @@ def read_seen_ids(csv_path):
             if aid:
                 seen.add(aid)
     return seen
+
+
+# --------------------------------------------------------------------------
+# Commit mode helpers (unit-tested)
+# --------------------------------------------------------------------------
+
+def titles_by_theme(candidates_doc):
+    """{theme_id: {arxiv_id: title}} from a candidates.json document."""
+    out = {}
+    for theme in candidates_doc.get("themes", []):
+        tid = theme.get("id")
+        out[tid] = {c["arxiv_id"]: c.get("title", "")
+                    for c in theme.get("candidates", [])}
+    return out
+
+
+def thresholds_by_theme(candidates_doc, default_threshold=3):
+    """{theme_id: threshold} from a candidates.json document."""
+    return {t.get("id"): int(t.get("threshold", default_threshold))
+            for t in candidates_doc.get("themes", [])}
+
+
+def commit_scores(scores, titles, thresholds, data_dir, evaluated_date):
+    """Append evaluated rows to per-theme seen-<id>.csv ledgers.
+
+    scores:     {theme_id: {arxiv_id: score}}
+    titles:     {theme_id: {arxiv_id: title}}  (from this run's candidates.json)
+    thresholds: {theme_id: int}
+    Returns {theme_id: rows_appended}. arxiv_ids absent from `titles` are ignored.
+    """
+    state_dir = data_dir / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    appended = {}
+    for theme_id, id_scores in scores.items():
+        theme_titles = titles.get(theme_id, {})
+        threshold = thresholds.get(theme_id, 3)
+        csv_path = state_dir / f"seen-{theme_id}.csv"
+        write_header = (not csv_path.exists()) or csv_path.stat().st_size == 0
+        n = 0
+        with csv_path.open("a", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            if write_header:
+                writer.writerow(CSV_HEADER)
+            for arxiv_id, score in id_scores.items():
+                if arxiv_id not in theme_titles:
+                    continue
+                surfaced = "true" if int(score) >= threshold else "false"
+                writer.writerow([arxiv_id, int(score), theme_titles[arxiv_id],
+                                 evaluated_date, surfaced])
+                n += 1
+        appended[theme_id] = n
+    return appended
