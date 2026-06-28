@@ -53,8 +53,8 @@ uv run --project . "<skill-dir>/fetch_arxiv.py"        # 取得 → watch-paper/
 
 - 設計の正本: スキルリポジトリの `docs/specs/2026-06-28-paper-watch-skill-design.md`
 - 実装計画: `docs/plans/2026-06-28-watch-paper-skill.md`
-- ロジックのテスト（スキルリポジトリルートから・pytest をエフェメラルに導入）:
+- テストはスキル内（`skills/watch-paper/tests/`）に同梱。ロジックのテスト（スキルリポジトリルートから・pytest をエフェメラルに導入）:
 
   ```
-  uv run --no-project --with pytest --python 3.13 pytest tests/watch-paper -v
+  uv run --no-project --with pytest --python 3.13 pytest skills/watch-paper/tests -v
   ```
