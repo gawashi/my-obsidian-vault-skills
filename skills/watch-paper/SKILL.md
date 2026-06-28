@@ -1,6 +1,6 @@
 ---
 name: watch-paper
-description: arXiv の新着論文を config.json の複数テーマごとに定点観測し、関連度（0〜5）でスコアリングして閾値以上を日付付きダイジェストに抽出する。評価済み論文は合否問わずテーマ別 CSV 台帳に記録し再評価しない。wiki への Ingest はしない（ユーザー手動）。Use when the user wants to watch or track new papers, asks 論文ウォッチ／新着論文を調べて／定点観測／arXiv の新着／watch papers, or invokes /watch-paper.
+description: Watch arXiv for new papers across the themes defined in config.json, score each candidate 0–5 for relevance, and surface those at or above each theme's threshold into a dated digest. Evaluated papers (kept or dropped) are recorded in per-theme CSV ledgers and never re-scored. Does not Ingest into the wiki (the user does that manually). Use when the user wants to watch or track new papers, asks 論文ウォッチ／新着論文を調べて／定点観測／arXiv の新着／watch papers, or invokes /watch-paper.
 ---
 
 # watch-paper
