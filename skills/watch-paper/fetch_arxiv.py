@@ -161,6 +161,16 @@ def now_local_date():
 
 def run_fetch(config, data_dir, now_utc):
     """Query arXiv per enabled theme; return the candidates.json document."""
+    # Verify TLS against the OS trust store (Windows Schannel / macOS / Linux)
+    # when truststore is available, so TLS-inspecting corporate proxies such as
+    # Zscaler — whose re-signed certs the OS already trusts — verify correctly.
+    # Guarded + lazy: a no-op when truststore isn't installed (public networks
+    # verify fine via certifi) and keeps the module importable without the dep.
+    try:
+        import truststore
+        truststore.inject_into_ssl()
+    except Exception:
+        pass
     import arxiv  # lazy: keep module importable for unit tests without the dep
 
     defaults = config.get("defaults", {})
