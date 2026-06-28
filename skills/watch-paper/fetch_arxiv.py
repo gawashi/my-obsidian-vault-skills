@@ -144,3 +144,143 @@ def commit_scores(scores, titles, thresholds, data_dir, evaluated_date):
                 n += 1
         appended[theme_id] = n
     return appended
+
+
+# --------------------------------------------------------------------------
+# Fetch mode (network) + CLI
+# --------------------------------------------------------------------------
+
+def load_config(path):
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def now_local_date():
+    return datetime.now().date().isoformat()
+
+
+def run_fetch(config, data_dir, now_utc):
+    """Query arXiv per enabled theme; return the candidates.json document."""
+    import arxiv  # lazy: keep module importable for unit tests without the dep
+
+    defaults = config.get("defaults", {})
+    client = arxiv.Client(
+        page_size=100,
+        delay_seconds=defaults.get("request_delay_seconds", 3),
+        num_retries=3,
+    )
+    doc = {"generated": now_utc.astimezone().isoformat(),
+           "first_run": False, "themes": []}
+    any_first_run = False
+
+    for theme in config.get("themes", []):
+        if theme.get("enabled", True) is False:
+            continue
+        tid = theme["id"]
+        seen = read_seen_ids(data_dir / "state" / f"seen-{tid}.csv")
+        is_empty = len(seen) == 0
+        any_first_run = any_first_run or is_empty
+        cutoff = cutoff_datetime(now_utc, lookback_days(is_empty, defaults))
+        cats = effective_categories(theme, defaults)
+        query = build_query(theme.get("keywords", []), cats)
+        search = arxiv.Search(
+            query=query,
+            max_results=defaults.get("max_results", 120),
+            sort_by=arxiv.SortCriterion.SubmittedDate,
+            sort_order=arxiv.SortOrder.Descending,
+        )
+        theme_out = {
+            "id": tid,
+            "name": theme.get("name", tid),
+            "threshold": effective_threshold(theme, defaults),
+            "anchors": theme.get("anchors", []),
+            "fetched": 0, "new": 0, "candidates": [],
+        }
+        try:
+            for r in client.results(search):
+                theme_out["fetched"] += 1
+                if r.published < cutoff:
+                    break  # descending order: nothing older qualifies
+                aid = base_arxiv_id(r.get_short_id())
+                if aid in seen:
+                    continue
+                theme_out["candidates"].append({
+                    "arxiv_id": aid,
+                    "title": r.title,
+                    "abstract": r.summary,
+                    "authors": [a.name for a in r.authors],
+                    "published": r.published.date().isoformat(),
+                    "primary_category": r.primary_category,
+                    "link": r.entry_id,
+                })
+            theme_out["new"] = len(theme_out["candidates"])
+        except Exception as e:  # arxiv.UnexpectedEmptyPageError / HTTPError etc.
+            theme_out["error"] = f"{type(e).__name__}: {e}"
+        doc["themes"].append(theme_out)
+
+    doc["first_run"] = any_first_run
+    return doc
+
+
+def _run_commit_mode(args, data_dir, config):
+    try:
+        with open(args.commit, "r", encoding="utf-8") as f:
+            scores = json.load(f)
+        with (data_dir / "candidates.json").open("r", encoding="utf-8") as f:
+            candidates_doc = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"[watch-paper] FATAL: cannot read scores/candidates: {e}", file=sys.stderr)
+        return 2
+    titles = titles_by_theme(candidates_doc)
+    default_thr = effective_threshold({}, config.get("defaults", {}))
+    thresholds = thresholds_by_theme(candidates_doc, default_thr)
+    appended = commit_scores(scores, titles, thresholds, data_dir, now_local_date())
+    print(f"[watch-paper] committed {sum(appended.values())} rows: {appended}",
+          file=sys.stderr)
+    return 0
+
+
+def _run_fetch_mode(data_dir, config):
+    now_utc = datetime.now(timezone.utc)
+    doc = run_fetch(config, data_dir, now_utc)
+    out_path = data_dir / "candidates.json"
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(doc, f, ensure_ascii=False, indent=2)
+    n_new = sum(t.get("new", 0) for t in doc["themes"])
+    print(f"[watch-paper] wrote {out_path} ({len(doc['themes'])} themes, {n_new} new)",
+          file=sys.stderr)
+    return 0
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="watch-paper arXiv fetch / ledger commit")
+    parser.add_argument("--data-dir", default=None,
+                        help="data root (default: <cwd>/watch-paper)")
+    parser.add_argument("--commit", default=None, metavar="SCORES_JSON",
+                        help="commit mode: append evaluated rows from scores.json")
+    args = parser.parse_args(argv)
+
+    data_dir = resolve_data_dir(args.data_dir)
+    print(f"[watch-paper] data_dir = {data_dir}", file=sys.stderr)
+    try:
+        (data_dir / "state").mkdir(parents=True, exist_ok=True)
+        (data_dir / "digests").mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(f"[watch-paper] FATAL: cannot create data dir: {e}", file=sys.stderr)
+        return 2
+
+    try:
+        config = load_config(CONFIG_PATH)
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"[watch-paper] FATAL: cannot read config {CONFIG_PATH}: {e}",
+              file=sys.stderr)
+        return 2
+
+    if args.commit:
+        return _run_commit_mode(args, data_dir, config)
+    return _run_fetch_mode(data_dir, config)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

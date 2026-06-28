@@ -153,3 +153,37 @@ def test_commit_ignores_ids_absent_from_candidates(tmp_path):
     appended = fa.commit_scores(scores, titles, thresholds, tmp_path, "2026-06-28")
     assert appended == {"t1": 1}
     assert fa.read_seen_ids(tmp_path / "state" / "seen-t1.csv") == {"2406.00001"}
+
+
+# ---- CLI commit mode (no network: run_fetch is not invoked) ----
+
+def test_main_commit_mode_writes_ledger(tmp_path):
+    data_dir = tmp_path / "watch-paper"
+    (data_dir / "state").mkdir(parents=True)
+    candidates_doc = {
+        "themes": [
+            {
+                "id": "t1",
+                "threshold": 3,
+                "candidates": [
+                    {"arxiv_id": "2406.00001", "title": "Foo, Bar"},
+                    {"arxiv_id": "2406.00002", "title": "Baz"},
+                ],
+            }
+        ]
+    }
+    (data_dir / "candidates.json").write_text(
+        json.dumps(candidates_doc, ensure_ascii=False), encoding="utf-8")
+    scores_path = tmp_path / "scores.json"
+    scores_path.write_text(
+        json.dumps({"t1": {"2406.00001": 4, "2406.00002": 1}}), encoding="utf-8")
+
+    rc = fa.main(["--data-dir", str(data_dir), "--commit", str(scores_path)])
+    assert rc == 0
+
+    assert fa.read_seen_ids(data_dir / "state" / "seen-t1.csv") == {"2406.00001", "2406.00002"}
+    with (data_dir / "state" / "seen-t1.csv").open(encoding="utf-8", newline="") as f:
+        rows = {r["arxiv_id"]: r for r in csv.DictReader(f)}
+    assert rows["2406.00001"]["surfaced"] == "true"   # 4 >= 3
+    assert rows["2406.00002"]["surfaced"] == "false"  # 1 < 3
+    assert rows["2406.00001"]["title"] == "Foo, Bar"
