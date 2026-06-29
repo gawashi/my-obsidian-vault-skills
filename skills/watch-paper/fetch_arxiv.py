@@ -16,7 +16,9 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-CONFIG_PATH = Path(__file__).parent / "config.json"
+from _common import (CONFIG_PATH, load_config, load_run_inputs,
+                     now_local_date, setup_data_dir)
+
 CSV_HEADER = ["arxiv_id", "score", "title", "evaluated", "surfaced"]
 
 
@@ -76,13 +78,6 @@ def lookback_days(ledger_empty, theme, defaults):
 def cutoff_datetime(now_utc, days):
     """The oldest `published` datetime to keep (tz-aware in, tz-aware out)."""
     return now_utc - timedelta(days=days)
-
-
-def resolve_data_dir(arg_data_dir):
-    """--data-dir if given, else <cwd>/watch-paper."""
-    if arg_data_dir:
-        return Path(arg_data_dir)
-    return Path.cwd() / "watch-paper"
 
 
 def read_seen_ids(csv_path):
@@ -153,14 +148,6 @@ def commit_scores(scores, titles, thresholds, data_dir, evaluated_date):
 # --------------------------------------------------------------------------
 # Fetch mode (network) + CLI
 # --------------------------------------------------------------------------
-
-def load_config(path):
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def now_local_date():
-    return datetime.now().date().isoformat()
 
 
 def run_fetch(config, data_dir, now_utc):
@@ -239,13 +226,8 @@ def run_fetch(config, data_dir, now_utc):
 
 
 def _run_commit_mode(args, data_dir, config):
-    try:
-        with open(args.commit, "r", encoding="utf-8") as f:
-            scores = json.load(f)
-        with (data_dir / "candidates.json").open("r", encoding="utf-8") as f:
-            candidates_doc = json.load(f)
-    except (OSError, json.JSONDecodeError) as e:
-        print(f"[watch-paper] FATAL: cannot read scores/candidates: {e}", file=sys.stderr)
+    candidates_doc, scores = load_run_inputs(data_dir, args.commit)
+    if candidates_doc is None:
         return 2
     titles = titles_by_theme(candidates_doc)
     default_thr = effective_threshold({}, config.get("defaults", {}))
@@ -277,11 +259,8 @@ def main(argv=None):
                         help="commit mode: append evaluated rows from scores.json")
     args = parser.parse_args(argv)
 
-    data_dir = resolve_data_dir(args.data_dir)
-    print(f"[watch-paper] data_dir = {data_dir}", file=sys.stderr)
     try:
-        (data_dir / "state").mkdir(parents=True, exist_ok=True)
-        (data_dir / "digests").mkdir(parents=True, exist_ok=True)
+        data_dir = setup_data_dir(args.data_dir)
     except OSError as e:
         print(f"[watch-paper] FATAL: cannot create data dir: {e}", file=sys.stderr)
         return 2

@@ -1,7 +1,6 @@
 import csv
 import json
 from datetime import datetime, timezone
-from pathlib import Path
 
 import fetch_arxiv as fa
 
@@ -69,14 +68,6 @@ def test_lookback_days_theme_override():
 def test_cutoff_datetime():
     now = datetime(2026, 6, 28, tzinfo=timezone.utc)
     assert fa.cutoff_datetime(now, 7) == datetime(2026, 6, 21, tzinfo=timezone.utc)
-
-
-def test_resolve_data_dir_default_is_cwd_watch_paper():
-    assert fa.resolve_data_dir(None) == Path.cwd() / "watch-paper"
-
-
-def test_resolve_data_dir_override():
-    assert fa.resolve_data_dir("/tmp/foo") == Path("/tmp/foo")
 
 
 def test_read_seen_ids_missing_file_is_empty(tmp_path):
