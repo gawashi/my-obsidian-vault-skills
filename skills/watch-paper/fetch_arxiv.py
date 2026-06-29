@@ -62,11 +62,15 @@ def build_query(keywords, categories):
     return query
 
 
-def lookback_days(ledger_empty, defaults):
-    """First run (empty ledger) -> first_run_lookback_days; else lookback_days."""
+def lookback_days(ledger_empty, theme, defaults):
+    """First run (empty ledger) -> first_run_lookback_days; else lookback_days.
+
+    Theme-level keys override defaults (mirrors effective_categories/threshold).
+    """
     if ledger_empty:
-        return int(defaults.get("first_run_lookback_days", 30))
-    return int(defaults.get("lookback_days", 7))
+        return int(theme.get("first_run_lookback_days",
+                             defaults.get("first_run_lookback_days", 30)))
+    return int(theme.get("lookback_days", defaults.get("lookback_days", 7)))
 
 
 def cutoff_datetime(now_utc, days):
@@ -190,7 +194,7 @@ def run_fetch(config, data_dir, now_utc):
         seen = read_seen_ids(data_dir / "state" / f"seen-{tid}.csv")
         is_empty = len(seen) == 0
         any_first_run = any_first_run or is_empty
-        cutoff = cutoff_datetime(now_utc, lookback_days(is_empty, defaults))
+        cutoff = cutoff_datetime(now_utc, lookback_days(is_empty, theme, defaults))
         cats = effective_categories(theme, defaults)
         query = build_query(theme.get("keywords", []), cats)
         search = arxiv.Search(

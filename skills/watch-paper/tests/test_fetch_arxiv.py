@@ -53,8 +53,17 @@ def test_effective_threshold():
 
 def test_lookback_days_first_run_vs_normal():
     defaults = {"lookback_days": 7, "first_run_lookback_days": 30}
-    assert fa.lookback_days(True, defaults) == 30
-    assert fa.lookback_days(False, defaults) == 7
+    assert fa.lookback_days(True, {}, defaults) == 30
+    assert fa.lookback_days(False, {}, defaults) == 7
+
+
+def test_lookback_days_theme_override():
+    defaults = {"lookback_days": 7, "first_run_lookback_days": 30}
+    # theme-level keys take precedence over defaults
+    assert fa.lookback_days(True, {"first_run_lookback_days": 365}, defaults) == 365
+    assert fa.lookback_days(False, {"lookback_days": 14}, defaults) == 14
+    # a theme override for one key does not affect the other branch
+    assert fa.lookback_days(False, {"first_run_lookback_days": 365}, defaults) == 7
 
 
 def test_cutoff_datetime():
