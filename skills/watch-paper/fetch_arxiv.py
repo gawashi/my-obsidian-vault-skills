@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
-"""watch-paper: deterministic arXiv fetch + ledger commit.
+"""watch-paper: deterministic arXiv fetch -> <data_dir>/candidates.json.
 
-Modes:
-  (default)              fetch new candidates  -> <data_dir>/candidates.json
-  --commit <scores.json> append evaluated rows -> <data_dir>/state/seen-<theme>.csv
-
-<data_dir> defaults to <cwd>/watch-paper (cwd == vault root); override with --data-dir.
-`import arxiv` is lazy (inside run_fetch) so the pure helpers below stay unit-testable
-without the dependency installed.
+<data_dir> defaults to <cwd>/watch-paper (cwd == vault root); override with
+--data-dir. `import arxiv` is lazy (inside run_fetch) so the pure helpers below
+stay unit-testable without the dependency installed.
 """
 import argparse
 import csv
@@ -16,10 +12,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from _common import (CONFIG_PATH, load_config, load_run_inputs,
-                     now_local_date, setup_data_dir)
-
-CSV_HEADER = ["arxiv_id", "score", "title", "evaluated", "surfaced"]
+from _common import CONFIG_PATH, load_config, setup_data_dir
 
 
 # --------------------------------------------------------------------------
@@ -91,58 +84,6 @@ def read_seen_ids(csv_path):
             if aid:
                 seen.add(aid)
     return seen
-
-
-# --------------------------------------------------------------------------
-# Commit mode helpers (unit-tested)
-# --------------------------------------------------------------------------
-
-def titles_by_theme(candidates_doc):
-    """{theme_id: {arxiv_id: title}} from a candidates.json document."""
-    out = {}
-    for theme in candidates_doc.get("themes", []):
-        tid = theme.get("id")
-        out[tid] = {c["arxiv_id"]: c.get("title", "")
-                    for c in theme.get("candidates", [])}
-    return out
-
-
-def thresholds_by_theme(candidates_doc, default_threshold=3):
-    """{theme_id: threshold} from a candidates.json document."""
-    return {t.get("id"): int(t.get("threshold", default_threshold))
-            for t in candidates_doc.get("themes", [])}
-
-
-def commit_scores(scores, titles, thresholds, data_dir, evaluated_date):
-    """Append evaluated rows to per-theme seen-<id>.csv ledgers.
-
-    scores:     {theme_id: {arxiv_id: score}}
-    titles:     {theme_id: {arxiv_id: title}}  (from this run's candidates.json)
-    thresholds: {theme_id: int}
-    Returns {theme_id: rows_appended}. arxiv_ids absent from `titles` are ignored.
-    """
-    state_dir = data_dir / "state"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    appended = {}
-    for theme_id, id_scores in scores.items():
-        theme_titles = titles.get(theme_id, {})
-        threshold = thresholds.get(theme_id, 3)
-        csv_path = state_dir / f"seen-{theme_id}.csv"
-        write_header = (not csv_path.exists()) or csv_path.stat().st_size == 0
-        n = 0
-        with csv_path.open("a", encoding="utf-8", newline="") as f:
-            writer = csv.writer(f)
-            if write_header:
-                writer.writerow(CSV_HEADER)
-            for arxiv_id, score in id_scores.items():
-                if arxiv_id not in theme_titles:
-                    continue
-                surfaced = "true" if int(score) >= threshold else "false"
-                writer.writerow([arxiv_id, int(score), theme_titles[arxiv_id],
-                                 evaluated_date, surfaced])
-                n += 1
-        appended[theme_id] = n
-    return appended
 
 
 # --------------------------------------------------------------------------
@@ -225,19 +166,6 @@ def run_fetch(config, data_dir, now_utc):
     return doc
 
 
-def _run_commit_mode(args, data_dir, config):
-    candidates_doc, scores = load_run_inputs(data_dir, args.commit)
-    if candidates_doc is None:
-        return 2
-    titles = titles_by_theme(candidates_doc)
-    default_thr = effective_threshold({}, config.get("defaults", {}))
-    thresholds = thresholds_by_theme(candidates_doc, default_thr)
-    appended = commit_scores(scores, titles, thresholds, data_dir, now_local_date())
-    print(f"[watch-paper] committed {sum(appended.values())} rows: {appended}",
-          file=sys.stderr)
-    return 0
-
-
 def _run_fetch_mode(data_dir, config):
     now_utc = datetime.now(timezone.utc)
     doc = run_fetch(config, data_dir, now_utc)
@@ -252,11 +180,9 @@ def _run_fetch_mode(data_dir, config):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="watch-paper arXiv fetch / ledger commit")
+        description="watch-paper arXiv fetch")
     parser.add_argument("--data-dir", default=None,
                         help="data root (default: <cwd>/watch-paper)")
-    parser.add_argument("--commit", default=None, metavar="SCORES_JSON",
-                        help="commit mode: append evaluated rows from scores.json")
     args = parser.parse_args(argv)
 
     try:
@@ -272,8 +198,6 @@ def main(argv=None):
               file=sys.stderr)
         return 2
 
-    if args.commit:
-        return _run_commit_mode(args, data_dir, config)
     return _run_fetch_mode(data_dir, config)
 
 
