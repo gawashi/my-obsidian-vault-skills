@@ -7,8 +7,8 @@
             "cs.MA"
         ],
         "threshold": 3,
-        "lookback_days": 7,
-        "first_run_lookback_days": 30,
+        "lookback_days": 14,
+        "first_run_lookback_days": 60,
         "max_results": 120,
         "request_delay_seconds": 3,
         "scoring_concurrency": 6
