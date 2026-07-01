@@ -91,3 +91,13 @@ def test_read_seen_ids_reads_ids_with_comma_titles(tmp_path):
         w.writerow(["2406.00001", "5", "Foo, Bar: A Study", "2026-06-28", "true"])
         w.writerow(["2406.00002", "2", "Baz", "2026-06-28", "false"])
     assert fa.read_seen_ids(p) == {"2406.00001", "2406.00002"}
+
+
+def test_main_bootstraps_config_and_stops(tmp_path):
+    data_dir = tmp_path / "watch-paper"
+    rc = fa.main(["--data-dir", str(data_dir)])
+    assert rc == 0
+    # template was copied into the data dir...
+    assert (data_dir / "config.json").exists()
+    # ...and fetch did not run (no network, no candidates.json)
+    assert not (data_dir / "candidates.json").exists()

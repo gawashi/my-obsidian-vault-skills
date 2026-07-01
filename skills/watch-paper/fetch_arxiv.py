@@ -12,7 +12,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from _common import CONFIG_PATH, load_config, setup_data_dir
+from _common import ensure_config, load_config, setup_data_dir
 
 
 # --------------------------------------------------------------------------
@@ -192,9 +192,21 @@ def main(argv=None):
         return 2
 
     try:
-        config = load_config(CONFIG_PATH)
+        cfg_path, created = ensure_config(data_dir)
+    except OSError as e:
+        print(f"[watch-paper] FATAL: cannot bootstrap config from template: {e}",
+              file=sys.stderr)
+        return 2
+
+    if created:
+        print(f"[watch-paper] edit the themes in {cfg_path} and re-run.",
+              file=sys.stderr)
+        return 0
+
+    try:
+        config = load_config(cfg_path)
     except (OSError, json.JSONDecodeError) as e:
-        print(f"[watch-paper] FATAL: cannot read config {CONFIG_PATH}: {e}",
+        print(f"[watch-paper] FATAL: cannot read config {cfg_path}: {e}",
               file=sys.stderr)
         return 2
 
