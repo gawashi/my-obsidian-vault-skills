@@ -10,7 +10,7 @@ import csv
 import json
 import sys
 
-from _common import (CONFIG_PATH, load_config, load_run_inputs,
+from _common import (config_path, load_config, load_run_inputs,
                      now_local_date, setup_data_dir)
 
 CSV_HEADER = ["arxiv_id", "score", "title", "evaluated", "surfaced"]
@@ -88,14 +88,14 @@ def main(argv=None):
     if candidates_doc is None:
         return 2
 
+    default_thr = 3
+    cfg_path = config_path(data_dir)
     try:
-        config = load_config(CONFIG_PATH)
+        config = load_config(cfg_path)
+        default_thr = int(config.get("defaults", {}).get("threshold", 3))
     except (OSError, json.JSONDecodeError) as e:
-        print(f"[watch-paper] FATAL: cannot read config {CONFIG_PATH}: {e}",
-              file=sys.stderr)
-        return 2
-
-    default_thr = int(config.get("defaults", {}).get("threshold", 3))
+        print(f"[watch-paper] WARN: config not read ({cfg_path}): {e}; "
+              f"using default threshold {default_thr}", file=sys.stderr)
     titles = titles_by_theme(candidates_doc)
     thresholds = thresholds_by_theme(candidates_doc, default_thr)
     appended = commit_scores(scores, titles, thresholds, data_dir, now_local_date())

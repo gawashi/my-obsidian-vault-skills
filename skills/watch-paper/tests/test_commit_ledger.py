@@ -111,3 +111,45 @@ def test_main_commit_mode_writes_ledger(tmp_path):
     assert rows["2406.00001"]["surfaced"] == "true"   # 4 >= 3
     assert rows["2406.00002"]["surfaced"] == "false"  # 1 < 3
     assert rows["2406.00001"]["title"] == "Foo, Bar"
+
+
+def test_main_uses_config_default_threshold_for_theme_without_threshold(tmp_path):
+    data_dir = tmp_path / "watch-paper"
+    (data_dir / "state").mkdir(parents=True)
+    # theme has NO "threshold" key -> commit must fall back to config defaults
+    candidates_doc = {"themes": [
+        {"id": "t1", "candidates": [{"arxiv_id": "2406.00001", "title": "Foo"}]}
+    ]}
+    (data_dir / "candidates.json").write_text(
+        json.dumps(candidates_doc, ensure_ascii=False), encoding="utf-8")
+    (data_dir / "config.json").write_text(
+        json.dumps({"defaults": {"threshold": 5}, "themes": []}), encoding="utf-8")
+    scores_path = tmp_path / "scores.json"
+    scores_path.write_text(json.dumps({"t1": {"2406.00001": {"score": 4}}}),
+                           encoding="utf-8")
+
+    rc = cl.main(["--data-dir", str(data_dir), str(scores_path)])
+    assert rc == 0
+    with (data_dir / "state" / "seen-t1.csv").open(encoding="utf-8", newline="") as f:
+        rows = {r["arxiv_id"]: r for r in csv.DictReader(f)}
+    assert rows["2406.00001"]["surfaced"] == "false"  # 4 < 5 (config default)
+
+
+def test_main_without_config_falls_back_to_threshold_3(tmp_path):
+    data_dir = tmp_path / "watch-paper"
+    (data_dir / "state").mkdir(parents=True)
+    # theme has NO "threshold" and there is NO config.json -> default 3, non-fatal
+    candidates_doc = {"themes": [
+        {"id": "t1", "candidates": [{"arxiv_id": "2406.00001", "title": "Foo"}]}
+    ]}
+    (data_dir / "candidates.json").write_text(
+        json.dumps(candidates_doc, ensure_ascii=False), encoding="utf-8")
+    scores_path = tmp_path / "scores.json"
+    scores_path.write_text(json.dumps({"t1": {"2406.00001": {"score": 3}}}),
+                           encoding="utf-8")
+
+    rc = cl.main(["--data-dir", str(data_dir), str(scores_path)])
+    assert rc == 0
+    with (data_dir / "state" / "seen-t1.csv").open(encoding="utf-8", newline="") as f:
+        rows = {r["arxiv_id"]: r for r in csv.DictReader(f)}
+    assert rows["2406.00001"]["surfaced"] == "true"  # 3 >= 3 (fallback default)
