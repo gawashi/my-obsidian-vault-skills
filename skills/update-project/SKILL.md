@@ -1,6 +1,6 @@
 ---
 name: update-project
-description: Update an existing project under 01-projects/ (created by new-project) when its files need to change — record progress, a requirement/goal change, a new important note, a new sizable sub-task, a new external resource, or a status milestone. Routes the event to LOG.md / INDEX.md / CLAUDE.md and, for substantial sub-tasks, creates a new note (or subfolder) then registers it in INDEX.md and logs it in LOG.md. Use when the user reports progress on, a requirement/scope change to, new notes/work in, or a status change of an existing 01-projects project, or invokes /update-project.
+description: Update an existing project under 01-projects/ when its files need to change — record progress, a requirement/goal change, a new important note, a new sizable sub-task, a new external resource, or a status milestone. Routes the event to LOG.md / INDEX.md / CLAUDE.md and, for substantial sub-tasks, creates a new note (or subfolder) then registers it in INDEX.md and logs it in LOG.md. Use when the user reports progress on, or a status change of, an existing 01-projects project; when you finish, complete, or wrap up a task tied to that project (proactively offer to record it); or when the user invokes /update-project.
 ---
 
 # Update Project
