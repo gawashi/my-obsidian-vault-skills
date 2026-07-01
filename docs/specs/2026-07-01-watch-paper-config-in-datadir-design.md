@@ -121,7 +121,7 @@ def ensure_config(data_dir):
 
 ```python
 from _common import (config_path, ensure_config,
-                     load_config, setup_data_dir)   # do not import CONFIG_PATH
+                     load_config, setup_data_dir)   
 ...
 try:
     data_dir = setup_data_dir(args.data_dir)
@@ -161,7 +161,7 @@ return _run_fetch_mode(data_dir, config)
 
 ```python
 from _common import (config_path, load_config, load_run_inputs,
-                     now_local_date, setup_data_dir)   # do not import CONFIG_PATH
+                     now_local_date, setup_data_dir)   
 ...
 default_thr = 3
 cfg_path = config_path(data_dir)
@@ -184,7 +184,7 @@ except (OSError, json.JSONDecodeError) as e:
 ```json
 {
     "defaults": {
-        "categories": ["cs.AI", "cs.CL", "cs.LG", "cs.MA"],
+        "categories": ["cs.AI", "cs.CL", "cs.LG"],
         "threshold": 3,
         "lookback_days": 14,
         "first_run_lookback_days": 60,
@@ -200,23 +200,16 @@ except (OSError, json.JSONDecodeError) as e:
             "keywords": [
                 "LLM agent",
                 "language model agent",
-                "autonomous agent",
-                "tool use",
                 "agentic workflow"
             ],
-            "anchors": [
-                "ReAct",
-                "Reflexion",
-                "Toolformer",
-                "AutoGPT"
-            ]
+            "anchors": ["ReAct", "AutoGPT"]
         }
     ]
 }
 ```
 
-- `defaults` は現行 `config.json` と同一値。
-- anchors/keywords は「LLM agent」領域の代表例（配布時の出発点・ユーザーが編集する前提）。
+- `defaults` は現行 `config.json` をベースにした穏当な出発点
+- keywords は 3 語・anchors は広く知られた 2 件（ReAct / AutoGPT）に絞る。テンプレートは最小・自明を優先し、ユーザーが編集する起点とする。
 
 ### 4.6 リポジトリからの config.json 削除 と .gitignore
 
