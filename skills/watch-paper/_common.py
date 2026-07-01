@@ -10,7 +10,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-CONFIG_PATH = Path(__file__).parent / "config.json"
 TEMPLATE_PATH = Path(__file__).parent / "config.example.json"
 
 
