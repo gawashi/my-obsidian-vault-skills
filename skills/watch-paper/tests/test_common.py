@@ -46,3 +46,23 @@ def test_load_run_inputs_missing_file_returns_none(tmp_path):
     candidates_doc, scores = cm.load_run_inputs(data_dir, str(tmp_path / "nope.json"))
     assert candidates_doc is None
     assert scores is None
+
+
+def test_config_path_is_data_dir_config_json(tmp_path):
+    assert cm.config_path(tmp_path) == tmp_path / "config.json"
+
+
+def test_ensure_config_copies_template_when_absent(tmp_path):
+    path, created = cm.ensure_config(tmp_path)
+    assert created is True
+    assert path == tmp_path / "config.json"
+    assert path.read_text(encoding="utf-8") == cm.TEMPLATE_PATH.read_text(encoding="utf-8")
+
+
+def test_ensure_config_is_noop_when_present(tmp_path):
+    existing = tmp_path / "config.json"
+    existing.write_text('{"defaults": {}, "themes": []}', encoding="utf-8")
+    path, created = cm.ensure_config(tmp_path)
+    assert created is False
+    assert path == existing
+    assert path.read_text(encoding="utf-8") == '{"defaults": {}, "themes": []}'

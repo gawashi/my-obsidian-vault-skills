@@ -5,11 +5,34 @@ Kept dependency-free (stdlib only) so every script and the unit tests can
 import it without the `arxiv` dependency installed.
 """
 import json
+import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
 
 CONFIG_PATH = Path(__file__).parent / "config.json"
+TEMPLATE_PATH = Path(__file__).parent / "config.example.json"
+
+
+def config_path(data_dir):
+    """Path of the live config: <data_dir>/config.json."""
+    return Path(data_dir) / "config.json"
+
+
+def ensure_config(data_dir):
+    """Copy the bundled template into the data dir if no live config exists.
+
+    Returns (path, created): created is True when the template was copied to
+    create a new config (the caller should stop and let the user edit it),
+    False when an existing config.json is already present. Raises OSError if
+    the template cannot be read or copied.
+    """
+    dst = config_path(data_dir)
+    if dst.exists():
+        return dst, False
+    shutil.copyfile(TEMPLATE_PATH, dst)
+    print(f"[watch-paper] created {dst} from template", file=sys.stderr)
+    return dst, True
 
 
 def resolve_data_dir(arg_data_dir):
