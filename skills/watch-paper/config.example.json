@@ -1,6 +1,10 @@
 {
     "defaults": {
-        "categories": ["cs.AI", "cs.CL", "cs.LG"],
+        "categories": [
+            "cs.AI",
+            "cs.CL",
+            "cs.LG"
+        ],
         "threshold": 3,
         "lookback_days": 14,
         "first_run_lookback_days": 60,
@@ -18,7 +22,10 @@
                 "language model agent",
                 "agentic workflow"
             ],
-            "anchors": ["ReAct", "AutoGPT"]
+            "anchors": [
+                "ReAct",
+                "AutoGPT"
+            ]
         }
     ]
 }

@@ -2,67 +2,75 @@
 
 arXiv の新着論文をテーマ別に定点観測し、関連度ダイジェストを生成する Claude Code スキル。
 
-## これは何か / 何でないか
+## 概要
 
-- **やること**: テーマ定義（`watch-paper/config.json`。初回はスキル同梱 `config.example.json` から自動生成）に基づき arXiv 新着を取得（`fetch_arxiv.py`）→ **1論文=1サブエージェント**で 0〜5 の関連度を並列採点し、メインがテーマ内で正規化（較正）→ enriched `scores.json` を書き、`render_digest.py` が閾値以上を `watch-paper/digests/YYYY-MM-DD.md` に決定的に描画。評価済みは合否問わず `commit_ledger.py` が `watch-paper/state/seen-<theme>.csv` に記録。
-- **やらないこと**: `wiki/` への Ingest・通知・スケジューラ連携・arXiv 以外の取得元（v1 スコープ外）。Ingest は Obsidian でダイジェストを見て手動で行う。
+設定したテーマで arXiv 新着を取得 → 各論文を関連度 0〜5 で採点 → 閾値以上を日付き Markdown ダイジェストに抽出する。評価済みはテーマ別 CSV 台帳に記録し、再採点しない。
 
 ## 前提
 
-- `uv`（Astral）がインストール済み。
-- vault が uv プロジェクト（`pyproject.toml`、`requires-python >=3.13`）であること。依存 `arxiv` を追加する: **vault ルートで** `uv add arxiv`（初回のみ。以後 `uv run` が自動 sync）。
-- このスキルは **vault ルートで起動した Claude** で実行する（ランタイムデータは CWD 配下 `watch-paper/` に書かれる）。
-- **TLS 傍受プロキシ環境（Zscaler 等）の場合**: ① プロキシを通す（`HTTPS_PROXY`/`HTTP_PROXY` を設定。環境変数はプロセス起動時に読まれるので、設定後はホストアプリを再起動するか実行直前に渡す）。② `uv add truststore` を追加する（`fetch_arxiv.py` が検出すると OS 証明書ストアで TLS 検証し、傍受された証明書を通せる。未導入なら無視され、素通し環境では `arxiv` の certifi で検証）。傍受されない通常ネットワークでは①②とも不要。
+- `uv`がインストール済み
+- 実行する作業ディレクトリ（CWD）が uv プロジェクト（`pyproject.toml`）であること。`arxiv` を追加する
+- このスキルは **作業ディレクトリ（CWD）で起動した Claude** で実行する（ランタイムデータは CWD 配下 `watch-paper/` に書かれる）。
 
 ## 手動実行
 
-1. Claude を vault ルートで起動する。
+1. Claude を作業ディレクトリ（CWD）で起動する。
 2. `/watch-paper` を実行（または「新着論文を調べて」等）。
-3. 生成された `watch-paper/digests/YYYY-MM-DD.md` を Obsidian で開く。
 
-スクリプト単体の動作確認（任意。`<skill-dir>` はこのスキルの絶対パス）:
-
-```
-uv run --project . "<skill-dir>/fetch_arxiv.py"                        # 取得 → watch-paper/candidates.json
-uv run --project . "<skill-dir>/render_digest.py" "watch-paper/scores.json"   # 描画 → watch-paper/digests/<日付>.md
-uv run --project . "<skill-dir>/commit_ledger.py" "watch-paper/scores.json"   # 台帳追記（1回のみ）
-```
-
-## 生成されるファイル（すべて vault ルート配下 `watch-paper/`）
+## 生成されるファイル（すべて CWD 配下 `watch-paper/`）
 
 | ファイル | 性質 |
 |---|---|
 | `config.json` | 永続・ユーザー編集。テーマ定義（初回に `config.example.json` から生成）。列/キーは `defaults` と `themes[]` |
 | `candidates.json` | 一時（毎回上書き）。取得結果 |
-| `scores.json` | 一時（毎回上書き）。LLM の採点結果 `{theme:{id:{score,summary_ja,why_ja}}}`。`render_digest.py`/`commit_ledger.py` の共通入力 |
-| `state/seen-<theme>.csv` | 永続・追記専用。評価台帳（弾いた論文もタイトル・スコア付きで残る）。列 `arxiv_id,score,title,evaluated,surfaced` |
+| `scores.json` | 一時（毎回上書き）。LLM の採点結果 `{theme:{id:{score,summary_ja,why_ja}}}` |
+| `state/seen-<theme>.csv` | 永続・追記専用。評価台帳（弾いた論文もタイトル・スコア付きで残る） |
 | `digests/YYYY-MM-DD.md` | 永続。ダイジェスト本体 |
-
-スキル本体（`SKILL.md`/`fetch_arxiv.py`/`render_digest.py`/`commit_ledger.py`/`_common.py`/`config.example.json`/`README.md`）は仕組みであり、実行では生成・変更されない。実設定 `config.json` は実行時データ dir 側（`watch-paper/config.json`）にある。
 
 ## テーマの編集
 
-`watch-paper/config.json` の `themes[]` を編集する（**厳密 JSON**、コメント・末尾カンマ不可）。初回実行時にスキル同梱 `config.example.json` から生成される。旧バージョンからの移行は、従来の設定を `watch-paper/config.json` にコピーすれば維持できる。
+観測するテーマは `watch-paper/config.json` で決める。**初回に `fetch_arxiv.py` を実行すると、同梱の `config.example.json` からこのファイルが自動生成される**（このときは取得せずに終了する）。生成されたら、下記を参考に `themes[]` を自分の関心事に書き換えて、もう一度実行する。
 
-- `enabled: false` のテーマはスキップ。
-- `categories: []`（空配列）でカテゴリ絞りを無効化（キーワードのみで検索）。未指定なら `defaults.categories` を継承。cs 外（`physics.chem-ph`/`q-bio`/`eess`/`stat.ML` 等）を拾いたければテーマの `categories` に足す。
-- `keywords` はアブスト検索（`abs:`、フレーズ）。`anchors` は関連度判定の基準（クエリには使わない）。
-- `threshold` をテーマ単位で上書き可（未指定なら `defaults.threshold`=3）。
-- `defaults.scoring_concurrency`（既定 6）で、採点サブエージェントの同時実行数を調整できる。候補が多い日のコスト/レートを抑えたければ下げる。
+`config.json` は 2 つのブロックからなる。
 
-## OneDrive 同期の注意
+- `defaults` … 全テーマ共通の既定値。
+- `themes[]` … テーマの配列。**1 テーマ = 1 オブジェクト**。ここを増やす／書き換えるのが基本の作業。
 
-`watch-paper/` は OneDrive 配下になりうる。CSV 台帳は追記専用なので通常は安全だが、複数端末で同時実行すると競合コピーが生じうる。競合時は手で 1 本にマージする（行の重複は `arxiv_id` で判断）。AIが誤って弾いた論文を拾い直したいときは、`state/seen-<theme>.csv` の該当行を削除すれば次回実行で再評価される。
+### テーマを追加する
 
-## 開発
+`themes[]` の `[ ... ]` の中に、次のブロックを追加する。`id` はテーマごとに重複しない値にする。
 
-- 設計の正本: スキルリポジトリの `docs/specs/2026-06-28-paper-watch-skill-design.md`
-- 採点の並列化差分: `docs/specs/2026-06-28-watch-paper-parallel-scoring-design.md`
-- スクリプト分割（fetch/render/commit）: `docs/specs/2026-06-29-watch-paper-script-split-design.md`
-- config の実行時 dir 移設: `docs/specs/2026-07-01-watch-paper-config-in-datadir-design.md`
-- 実装計画: `docs/plans/2026-06-28-watch-paper-skill.md`
-- テストはスキル内（`skills/watch-paper/tests/`）に同梱。ロジックのテスト（スキルリポジトリルートから・pytest をエフェメラルに導入）:
+```json
+{
+    "id": "llm-agent",
+    "name": "LLM agent",
+    "enabled": true,
+    "keywords": ["LLM agent", "language model agent", "agentic workflow"],
+    "anchors": ["ReAct", "AutoGPT"]
+}
+```
 
-  ```
-  uv run --no-project --with pytest --python 3.13 pytest skills/watch-paper/tests -v
-  ```
+### `themes[]` の項目
+
+| キー | 要否 | 意味・書き方 |
+|---|---|---|
+| `id` | 必須 | テーマの識別子。台帳ファイル名 `state/seen-<id>.csv` に使う。**一意・英数字/ハイフン推奨**。後から変えると別テーマ扱いになり過去分を再評価してしまうので、最初に決める |
+| `name` | 推奨 | 表示名（ダイジェストの見出し）。省略すると `id` が使われる |
+| `keywords` | 必須 | arXiv アブストの検索語。フレーズごとに `abs:"..."` で OR 検索する。ここで候補を絞り込むので、拾いたい語を具体的に並べる |
+| `anchors` | 推奨 | 関連度採点の基準例（代表的な手法・システム名）。検索クエリには使わず、LLM が「このテーマらしさ」を判断する基準に使う。充実させるほど採点が安定する |
+| `enabled` | 任意 | `false` にするとそのテーマをスキップ（消さずに一時停止できる）。省略時 `true` |
+| `categories` | 任意 | arXiv カテゴリで絞る。未指定なら `defaults.categories` を継承する。`[]`（空配列）にすると絞りを外し、全分野をキーワードだけで検索する |
+| `threshold` | 任意 | このテーマだけ採用閾値を変える（未指定なら `defaults.threshold`） |
+| `lookback_days` / `first_run_lookback_days` | 任意 | このテーマだけ遡り日数を変える（未指定なら `defaults` を継承） |
+
+### `defaults` の項目（全テーマ共通の既定値）
+
+| キー | 既定 | 意味 |
+|---|---|---|
+| `categories` | `["cs.AI","cs.CL","cs.LG"]` | テーマが `categories` を指定しないときの絞り込み対象 |
+| `threshold` | `3` | 採用閾値。関連度が **この値以上（0〜5）** の論文だけダイジェストに出す |
+| `lookback_days` | `14` | 2 回目以降の実行で、何日前まで遡って新着を見るか |
+| `first_run_lookback_days` | `60` | 台帳が空（初回）のときに遡る日数。最初にまとめて拾う用 |
+| `max_results` | `120` | 1 テーマあたり arXiv から取る最大件数 |
+| `request_delay_seconds` | `3` | arXiv へのリクエスト間隔（秒）。レート制限対策 |
+| `scoring_concurrency` | `6` | 採点サブエージェントの同時実行数。候補が多い日のコスト/レートを抑えたければ下げる |

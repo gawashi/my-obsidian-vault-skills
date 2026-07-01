@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """watch-paper: deterministic arXiv fetch -> <data_dir>/candidates.json.
 
-<data_dir> defaults to <cwd>/watch-paper (cwd == vault root); override with
+<data_dir> defaults to <cwd>/watch-paper; override with
 --data-dir. `import arxiv` is lazy (inside run_fetch) so the pure helpers below
 stay unit-testable without the dependency installed.
 """
@@ -10,10 +10,8 @@ import csv
 import json
 import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 from _common import ensure_config, load_config, setup_data_dir
-
 
 # --------------------------------------------------------------------------
 # Pure helpers (unit-tested)
