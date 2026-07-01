@@ -1,0 +1,31 @@
+{
+    "defaults": {
+        "categories": [
+            "cs.AI",
+            "cs.CL",
+            "cs.LG"
+        ],
+        "threshold": 3,
+        "lookback_days": 14,
+        "first_run_lookback_days": 60,
+        "max_results": 120,
+        "request_delay_seconds": 3,
+        "scoring_concurrency": 6
+    },
+    "themes": [
+        {
+            "id": "llm-agent",
+            "name": "LLM agent",
+            "enabled": true,
+            "keywords": [
+                "LLM agent",
+                "language model agent",
+                "agentic workflow"
+            ],
+            "anchors": [
+                "ReAct",
+                "AutoGPT"
+            ]
+        }
+    ]
+}

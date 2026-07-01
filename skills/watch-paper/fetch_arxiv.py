@@ -1,24 +1,17 @@
 #!/usr/bin/env python3
-"""watch-paper: deterministic arXiv fetch + ledger commit.
+"""watch-paper: deterministic arXiv fetch -> <data_dir>/candidates.json.
 
-Modes:
-  (default)              fetch new candidates  -> <data_dir>/candidates.json
-  --commit <scores.json> append evaluated rows -> <data_dir>/state/seen-<theme>.csv
-
-<data_dir> defaults to <cwd>/watch-paper (cwd == vault root); override with --data-dir.
-`import arxiv` is lazy (inside run_fetch) so the pure helpers below stay unit-testable
-without the dependency installed.
+<data_dir> defaults to <cwd>/watch-paper; override with
+--data-dir. `import arxiv` is lazy (inside run_fetch) so the pure helpers below
+stay unit-testable without the dependency installed.
 """
 import argparse
 import csv
 import json
 import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
-CONFIG_PATH = Path(__file__).parent / "config.json"
-CSV_HEADER = ["arxiv_id", "score", "title", "evaluated", "surfaced"]
-
+from _common import ensure_config, load_config, setup_data_dir
 
 # --------------------------------------------------------------------------
 # Pure helpers (unit-tested)
@@ -62,23 +55,20 @@ def build_query(keywords, categories):
     return query
 
 
-def lookback_days(ledger_empty, defaults):
-    """First run (empty ledger) -> first_run_lookback_days; else lookback_days."""
+def lookback_days(ledger_empty, theme, defaults):
+    """First run (empty ledger) -> first_run_lookback_days; else lookback_days.
+
+    Theme-level keys override defaults (mirrors effective_categories/threshold).
+    """
     if ledger_empty:
-        return int(defaults.get("first_run_lookback_days", 30))
-    return int(defaults.get("lookback_days", 7))
+        return int(theme.get("first_run_lookback_days",
+                             defaults.get("first_run_lookback_days", 30)))
+    return int(theme.get("lookback_days", defaults.get("lookback_days", 7)))
 
 
 def cutoff_datetime(now_utc, days):
     """The oldest `published` datetime to keep (tz-aware in, tz-aware out)."""
     return now_utc - timedelta(days=days)
-
-
-def resolve_data_dir(arg_data_dir):
-    """--data-dir if given, else <cwd>/watch-paper."""
-    if arg_data_dir:
-        return Path(arg_data_dir)
-    return Path.cwd() / "watch-paper"
 
 
 def read_seen_ids(csv_path):
@@ -95,68 +85,8 @@ def read_seen_ids(csv_path):
 
 
 # --------------------------------------------------------------------------
-# Commit mode helpers (unit-tested)
-# --------------------------------------------------------------------------
-
-def titles_by_theme(candidates_doc):
-    """{theme_id: {arxiv_id: title}} from a candidates.json document."""
-    out = {}
-    for theme in candidates_doc.get("themes", []):
-        tid = theme.get("id")
-        out[tid] = {c["arxiv_id"]: c.get("title", "")
-                    for c in theme.get("candidates", [])}
-    return out
-
-
-def thresholds_by_theme(candidates_doc, default_threshold=3):
-    """{theme_id: threshold} from a candidates.json document."""
-    return {t.get("id"): int(t.get("threshold", default_threshold))
-            for t in candidates_doc.get("themes", [])}
-
-
-def commit_scores(scores, titles, thresholds, data_dir, evaluated_date):
-    """Append evaluated rows to per-theme seen-<id>.csv ledgers.
-
-    scores:     {theme_id: {arxiv_id: score}}
-    titles:     {theme_id: {arxiv_id: title}}  (from this run's candidates.json)
-    thresholds: {theme_id: int}
-    Returns {theme_id: rows_appended}. arxiv_ids absent from `titles` are ignored.
-    """
-    state_dir = data_dir / "state"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    appended = {}
-    for theme_id, id_scores in scores.items():
-        theme_titles = titles.get(theme_id, {})
-        threshold = thresholds.get(theme_id, 3)
-        csv_path = state_dir / f"seen-{theme_id}.csv"
-        write_header = (not csv_path.exists()) or csv_path.stat().st_size == 0
-        n = 0
-        with csv_path.open("a", encoding="utf-8", newline="") as f:
-            writer = csv.writer(f)
-            if write_header:
-                writer.writerow(CSV_HEADER)
-            for arxiv_id, score in id_scores.items():
-                if arxiv_id not in theme_titles:
-                    continue
-                surfaced = "true" if int(score) >= threshold else "false"
-                writer.writerow([arxiv_id, int(score), theme_titles[arxiv_id],
-                                 evaluated_date, surfaced])
-                n += 1
-        appended[theme_id] = n
-    return appended
-
-
-# --------------------------------------------------------------------------
 # Fetch mode (network) + CLI
 # --------------------------------------------------------------------------
-
-def load_config(path):
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def now_local_date():
-    return datetime.now().date().isoformat()
 
 
 def run_fetch(config, data_dir, now_utc):
@@ -190,7 +120,7 @@ def run_fetch(config, data_dir, now_utc):
         seen = read_seen_ids(data_dir / "state" / f"seen-{tid}.csv")
         is_empty = len(seen) == 0
         any_first_run = any_first_run or is_empty
-        cutoff = cutoff_datetime(now_utc, lookback_days(is_empty, defaults))
+        cutoff = cutoff_datetime(now_utc, lookback_days(is_empty, theme, defaults))
         cats = effective_categories(theme, defaults)
         query = build_query(theme.get("keywords", []), cats)
         search = arxiv.Search(
@@ -234,24 +164,6 @@ def run_fetch(config, data_dir, now_utc):
     return doc
 
 
-def _run_commit_mode(args, data_dir, config):
-    try:
-        with open(args.commit, "r", encoding="utf-8") as f:
-            scores = json.load(f)
-        with (data_dir / "candidates.json").open("r", encoding="utf-8") as f:
-            candidates_doc = json.load(f)
-    except (OSError, json.JSONDecodeError) as e:
-        print(f"[watch-paper] FATAL: cannot read scores/candidates: {e}", file=sys.stderr)
-        return 2
-    titles = titles_by_theme(candidates_doc)
-    default_thr = effective_threshold({}, config.get("defaults", {}))
-    thresholds = thresholds_by_theme(candidates_doc, default_thr)
-    appended = commit_scores(scores, titles, thresholds, data_dir, now_local_date())
-    print(f"[watch-paper] committed {sum(appended.values())} rows: {appended}",
-          file=sys.stderr)
-    return 0
-
-
 def _run_fetch_mode(data_dir, config):
     now_utc = datetime.now(timezone.utc)
     doc = run_fetch(config, data_dir, now_utc)
@@ -266,31 +178,36 @@ def _run_fetch_mode(data_dir, config):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="watch-paper arXiv fetch / ledger commit")
+        description="watch-paper arXiv fetch")
     parser.add_argument("--data-dir", default=None,
                         help="data root (default: <cwd>/watch-paper)")
-    parser.add_argument("--commit", default=None, metavar="SCORES_JSON",
-                        help="commit mode: append evaluated rows from scores.json")
     args = parser.parse_args(argv)
 
-    data_dir = resolve_data_dir(args.data_dir)
-    print(f"[watch-paper] data_dir = {data_dir}", file=sys.stderr)
     try:
-        (data_dir / "state").mkdir(parents=True, exist_ok=True)
-        (data_dir / "digests").mkdir(parents=True, exist_ok=True)
+        data_dir = setup_data_dir(args.data_dir)
     except OSError as e:
         print(f"[watch-paper] FATAL: cannot create data dir: {e}", file=sys.stderr)
         return 2
 
     try:
-        config = load_config(CONFIG_PATH)
-    except (OSError, json.JSONDecodeError) as e:
-        print(f"[watch-paper] FATAL: cannot read config {CONFIG_PATH}: {e}",
+        cfg_path, created = ensure_config(data_dir)
+    except OSError as e:
+        print(f"[watch-paper] FATAL: cannot bootstrap config from template: {e}",
               file=sys.stderr)
         return 2
 
-    if args.commit:
-        return _run_commit_mode(args, data_dir, config)
+    if created:
+        print(f"[watch-paper] edit the themes in {cfg_path} and re-run.",
+              file=sys.stderr)
+        return 0
+
+    try:
+        config = load_config(cfg_path)
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"[watch-paper] FATAL: cannot read config {cfg_path}: {e}",
+              file=sys.stderr)
+        return 2
+
     return _run_fetch_mode(data_dir, config)
 
 
